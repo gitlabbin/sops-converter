@@ -31,6 +31,7 @@ type SopsSecretStatus struct {
 }
 
 // +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 
 // SopsSecret is the Schema for the sopssecrets API
 type SopsSecret struct {
