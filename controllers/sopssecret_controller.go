@@ -17,6 +17,7 @@ limitations under the License.
 package controllers
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha1"
 	"encoding/hex"
@@ -24,6 +25,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"reflect"
 	"strconv"
 	"strings"
@@ -40,7 +42,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	secretsv1beta1 "github.com/dhouti/sops-converter/api/v1beta1"
-	sops "go.mozilla.org/sops/v3/decrypt"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -72,7 +73,19 @@ type SopsDecrytor struct {
 }
 
 func (d *SopsDecrytor) Decrypt(input []byte, outFormat string) ([]byte, error) {
-	return sops.Data(input, outFormat)
+	args := []string{"--decrypt", "--input-type", outFormat, "--output-type", outFormat, "/dev/stdin"}
+
+	command := exec.Command("sops", args...)
+	command.Stdin = bytes.NewBuffer(input)
+
+	output, err := command.Output()
+	if err != nil {
+		if e, ok := err.(*exec.ExitError); ok {
+			return nil, fmt.Errorf("failed to decrypt file: %s", string(e.Stderr))
+		}
+		return nil, err
+	}
+	return output, err
 }
 
 func (r *SopsSecretReconciler) InjectDecryptor(d Decryptor) {

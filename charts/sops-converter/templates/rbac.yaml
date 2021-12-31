@@ -1,0 +1,35 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: {{ include "sops-converter.roleKind" . }}
+metadata:
+  name: {{ include "sops-converter.fullname" . }}
+rules:
+  - apiGroups: [secrets.dhouti.dev]
+    resources: [sopssecrets]
+    verbs: ["*"]
+  - apiGroups: [secrets.dhouti.dev]
+    resources: [sopssecrets/status]
+    verbs: ["*"]
+  - apiGroups: [""]
+    resources: [secrets]
+    verbs: ["*"]
+---
+
+{{- if .Values.rbac.create }}
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ include "sops-converter.fullname" . }}
+  labels:
+  {{- include "sops-converter.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "sops-converter.serviceAccountName" . }}
+    {{- if .Values.rbac.clusterScoped }}
+    namespace: {{ .Release.Namespace }}
+  {{- end }}
+roleRef:
+  kind: ClusterRole
+  name: {{ include "sops-converter.fullname" . }}
+  apiGroup: rbac.authorization.k8s.io
+  {{- end }}

@@ -1,6 +1,6 @@
 
 # Image URL to use all building/pushing image targets
-IMG ?= dhouti/sops-converter:v0.0.2
+IMG ?= docker.io/$(DOCKER_USER)/sops-converter:v0.0.2
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 
@@ -52,6 +52,7 @@ docker-build:
 
 # Push the docker image
 docker-push:
+	docker login -u $(DOCKER_USER) -p $(DOCKER_PWD)
 	docker push ${IMG}
 
 # find or download controller-gen
@@ -63,7 +64,7 @@ ifeq (, $(shell which controller-gen))
 	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
 	cd $$CONTROLLER_GEN_TMP_DIR ;\
 	go mod init tmp ;\
-	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.5.0 ;\
+	go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.7.0 ;\
 	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
 	}
 CONTROLLER_GEN=$(GOBIN)/controller-gen
