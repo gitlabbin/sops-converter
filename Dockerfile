@@ -18,13 +18,20 @@ COPY hack/ hack/
 # Build
 COPY Makefile Makefile
 RUN make generate
-RUN CGO_ENABLED=0 GOOS=linux GO111MODULE=on go build -a -o manager main.go
+RUN CGO_ENABLED=0 GOOS=linux GO111MODULE=on go build -a -o sops-operator main.go
 
-# Use distroless as minimal base image to package the manager binary
-# Refer to https://github.com/GoogleContainerTools/distroless for more details
-FROM gcr.io/distroless/static:nonroot
-WORKDIR /
-COPY --from=builder /workspace/manager .
-USER nonroot:nonroot
+FROM alpine:3.15
 
-ENTRYPOINT ["/manager"]
+RUN apk add --no-cache ca-certificates tzdata bash curl gnupg \
+    && addgroup -S --gid 1000 sops-operator \
+    && adduser -S -u 1000 -g sops-operator sops-operator
+
+RUN curl -fsSLo /usr/local/bin/sops https://github.com/mozilla/sops/releases/download/v3.7.1/sops-v3.7.1.linux \
+    && chmod +x /usr/local/bin/sops
+
+RUN cp /usr/share/zoneinfo/Australia/Sydney /etc/localtime
+COPY --from=builder /workspace/sops-operator /usr/local/bin
+
+USER sops-operator
+WORKDIR /home/sops-operator
+ENTRYPOINT ["sops-operator"]

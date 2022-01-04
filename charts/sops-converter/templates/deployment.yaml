@@ -1,0 +1,122 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "sops-converter.fullname" . }}
+  labels:
+    {{- include "sops-converter.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "sops-converter.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "sops-converter.selectorLabels" . | nindent 8 }}
+        date: "{{ now | unixEpoch }}"
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "sops-converter.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if .Values.gpg.enabled }}
+      initContainers:
+        - name: init-gpg
+          image: "{{ .Values.initImage.repository }}:{{ .Values.initImage.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.initImage.pullPolicy }}
+          command:
+            - sh
+            - '-c'
+            - >-
+              gpg --batch --import /var/secrets/gpg-secrets/gpg-key-secret;
+              gpg --import-ownertrust /var/secrets/gpg-secrets/gpg-ownertrust-secret;
+              echo ${PASSPHRASE} | gpg --batch --always-trust --yes --passphrase-fd 0 --pinentry-mode=loopback -s $(mktemp)
+          env:
+            - name: GPG_TTY
+              value: "$(tty)"
+            - name: GNUPGHOME
+              value: /var/secrets/gpg
+            - name: PASSPHRASE
+              valueFrom:
+                secretKeyRef:
+                  key: gpg-passphrase
+                  name: {{ .Values.gpg.passphraseSecret }}
+          volumeMounts:
+            - mountPath: /var/secrets/gpg
+              name: sops-gpg
+            - mountPath: /var/secrets/gpg-secrets/gpg-key-secret
+              subPath: gpg-key-secret
+              name: sops-operator-gpg-key-secret
+            - mountPath: /var/secrets/gpg-secrets/gpg-ownertrust-secret
+              subPath: gpg-ownertrust-secret
+              name: sops-operator-gpg-ownertrust-secret
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            {{- if .Values.gpg.enabled }}
+            - name: GPG_TTY
+              value: "$(tty)"
+            - name: GNUPGHOME
+              value: /var/secrets/gpg
+            - name: PASSPHRASE
+              valueFrom:
+                secretKeyRef:
+                  key: gpg-passphrase
+                  name: {{ .Values.gpg.passphraseSecret }}
+            {{- end }}
+            - name: WATCH_NAMESPACE
+              value: "{{ if .Values.rbac.clusterScoped }}{{ .Values.watchNamespace }}{{ else }}{{ .Release.Namespace }}{{ end }}"
+          {{- if .Values.gpg.enabled }}
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                  - sh
+                  - -c
+                  - echo ${PASSPHRASE} | gpg --batch --always-trust --yes --passphrase-fd 0 --pinentry-mode=loopback -s $(mktemp)
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            {{- if .Values.gpg.enabled }}
+            - mountPath: /var/secrets/gpg
+              name: sops-gpg
+            {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      volumes:
+        {{- if .Values.gpg.enabled }}
+        - name: sops-operator-gpg-key-secret
+          secret:
+            secretName: {{ .Values.gpg.keySecret }}
+        - name: sops-operator-gpg-ownertrust-secret
+          secret:
+            secretName: {{ .Values.gpg.ownertrustSecret }}
+        - name: sops-gpg
+          emptyDir: {}
+        {{- end }}
