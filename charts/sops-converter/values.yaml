@@ -95,6 +95,9 @@ tolerations: []
 
 affinity: {}
 
+# A comma-separated list of namespaces to watch. Leave empty to watch all namespaces
+watchNamespace: "default"
+
 gpg:
   enabled: true
   keySecret: gpg-key-secret
