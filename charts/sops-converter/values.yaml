@@ -22,7 +22,7 @@ initImage:
 rbac:
   # Specifies whether RBAC resources should be created
   create: true
-  clusterScoped: true
+  clusterScoped: false
 
 serviceAccount:
   # Specifies whether a service account should be created
@@ -96,7 +96,7 @@ tolerations: []
 affinity: {}
 
 # A comma-separated list of namespaces to watch. Leave empty to watch all namespaces
-watchNamespace: "default"
+watchNamespace: ""
 
 gpg:
   enabled: true

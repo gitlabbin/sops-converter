@@ -18,17 +18,25 @@ package main
 
 import (
 	"flag"
+	"fmt"
+	"k8s.io/klog/v2"
+	"k8s.io/klog/v2/klogr"
 	"os"
-
-	"k8s.io/apimachinery/pkg/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"strings"
 
 	secretsv1beta1 "github.com/dhouti/sops-converter/api/v1beta1"
 	"github.com/dhouti/sops-converter/controllers"
+	"k8s.io/apimachinery/pkg/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	ctrl "sigs.k8s.io/controller-runtime"
 	// +kubebuilder:scaffold:imports
 )
+
+// watchNamespaceEnvVar is the constant for env variable WATCH_NAMESPACE
+// which specifies the namespaces (comma-separated) to watch.
+// An empty value means the operator is running with cluster scope.
+const watchNamespaceEnvVar = "WATCH_NAMESPACE"
 
 var (
 	scheme   = runtime.NewScheme()
@@ -44,14 +52,18 @@ func init() {
 func main() {
 	var metricsAddr string
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
+	klog.InitFlags(nil)
 	flag.Parse()
 
-	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
+	ctrl.SetLogger(klogr.New())
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:             scheme,
-		MetricsBindAddress: metricsAddr,
-	})
+	options, err := getOptions(metricsAddr)
+	if err != nil {
+		setupLog.Error(err, "unable to get WatchNamespace, "+
+			"the manager will watch and manage resources in all Namespaces")
+	}
+
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), *options)
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
@@ -72,4 +84,27 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+func getOptions(metricsAddr string) (*ctrl.Options, error) {
+	options := ctrl.Options{
+		Namespace:          "",
+		Scheme:             scheme,
+		MetricsBindAddress: metricsAddr,
+	}
+
+	ns, found := os.LookupEnv(watchNamespaceEnvVar)
+	if !found {
+		return &options, fmt.Errorf("%s must be set", watchNamespaceEnvVar)
+	}
+	options.Namespace = ns
+
+	// Multi Namespaces in WATCH_NAMESPACE (e.g ns1,ns2)
+	if strings.Contains(ns, ",") {
+		setupLog.Info("manager set up with multiple namespaces", "namespaces", ns)
+		// configure cluster-scoped with MultiNamespacedCacheBuilder
+		options.Namespace = ""
+		options.NewCache = cache.MultiNamespacedCacheBuilder(strings.Split(ns, ","))
+	}
+	return &options, nil
 }
