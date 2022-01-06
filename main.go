@@ -19,17 +19,19 @@ package main
 import (
 	"flag"
 	"fmt"
-	"k8s.io/klog/v2"
-	"k8s.io/klog/v2/klogr"
-	"os"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
-	"strings"
-
 	secretsv1beta1 "github.com/dhouti/sops-converter/api/v1beta1"
 	"github.com/dhouti/sops-converter/controllers"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/klog/v2"
+	"k8s.io/klog/v2/klogr"
+	"os"
+	"os/exec"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"strings"
+	"time"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -37,10 +39,13 @@ import (
 // which specifies the namespaces (comma-separated) to watch.
 // An empty value means the operator is running with cluster scope.
 const watchNamespaceEnvVar = "WATCH_NAMESPACE"
+const refreshGpgFmt = "echo %s | gpg --batch --always-trust --yes --passphrase-fd 0 --pinentry-mode=loopback -s $(mktemp)"
 
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
+
+	done = make(chan bool)
 )
 
 func init() {
@@ -56,25 +61,11 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(klogr.New())
+	initializeScheduleJob()
 
-	options, err := getOptions(metricsAddr)
+	mgr, err := initialConfiguration(metricsAddr)
 	if err != nil {
-		setupLog.Error(err, "unable to get WatchNamespace, "+
-			"the manager will watch and manage resources in all Namespaces")
-	}
-
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), *options)
-	if err != nil {
-		setupLog.Error(err, "unable to start manager")
-		os.Exit(1)
-	}
-
-	if err = (&controllers.SopsSecretReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("SopsSecret"),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "SopsSecret")
+		setupLog.Error(err, "")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
@@ -84,6 +75,34 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+
+	setupLog.Info("Gracefully shutdown...")
+	done <- true //Gracefully shutdown
+}
+
+func initialConfiguration(metricsAddr string) (manager.Manager, error) {
+	options, err := getOptions(metricsAddr)
+	if err != nil {
+		setupLog.Error(err, "unable to get WatchNamespace, "+
+			"the manager will watch and manage resources in all Namespaces")
+	}
+
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), *options)
+	if err != nil {
+		setupLog.Error(err, "unable to start manager")
+		return nil, err
+	}
+
+	if err = (&controllers.SopsSecretReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("SopsSecret"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "SopsSecret")
+		return nil, err
+	}
+
+	return mgr, nil
 }
 
 func getOptions(metricsAddr string) (*ctrl.Options, error) {
@@ -107,4 +126,44 @@ func getOptions(metricsAddr string) (*ctrl.Options, error) {
 		options.NewCache = cache.MultiNamespacedCacheBuilder(strings.Split(ns, ","))
 	}
 	return &options, nil
+}
+
+func initializeScheduleJob() {
+	ticker := time.NewTicker(10 * time.Minute)
+
+	go func() {
+		for {
+			select {
+			case <-done:
+				ticker.Stop()
+				return
+			case <-ticker.C:
+				refreshGpg()
+			}
+		}
+	}()
+}
+
+func refreshGpg() {
+	passPhrase, found := os.LookupEnv("PASSPHRASE")
+	if found {
+		out := cmd(fmt.Sprintf(refreshGpgFmt, passPhrase), true)
+		klog.Info(string(out))
+	}
+}
+
+func cmd(cmd string, shell bool) []byte {
+	if shell {
+		out, err := exec.Command("sh", "-c", cmd).CombinedOutput()
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+		return out
+	} else {
+		out, err := exec.Command(cmd).CombinedOutput()
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+		return out
+	}
 }
