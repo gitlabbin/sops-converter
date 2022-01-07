@@ -45,7 +45,8 @@ var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
 
-	done = make(chan bool)
+	metricsAddr = ":8080"
+	done        = make(chan bool)
 )
 
 func init() {
@@ -55,7 +56,6 @@ func init() {
 }
 
 func main() {
-	var metricsAddr string
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	klog.InitFlags(nil)
 	flag.Parse()
@@ -63,7 +63,7 @@ func main() {
 	ctrl.SetLogger(klogr.New())
 	initializeScheduleJob()
 
-	mgr, err := initialConfiguration(metricsAddr)
+	mgr, err := initialConfiguration()
 	if err != nil {
 		setupLog.Error(err, "")
 		os.Exit(1)
@@ -80,8 +80,8 @@ func main() {
 	done <- true //Gracefully shutdown
 }
 
-func initialConfiguration(metricsAddr string) (manager.Manager, error) {
-	options, err := getOptions(metricsAddr)
+func initialConfiguration() (manager.Manager, error) {
+	options, err := getOptions()
 	if err != nil {
 		setupLog.Error(err, "unable to get WatchNamespace, "+
 			"the manager will watch and manage resources in all Namespaces")
@@ -105,7 +105,7 @@ func initialConfiguration(metricsAddr string) (manager.Manager, error) {
 	return mgr, nil
 }
 
-func getOptions(metricsAddr string) (*ctrl.Options, error) {
+func getOptions() (*ctrl.Options, error) {
 	options := ctrl.Options{
 		Namespace:          "",
 		Scheme:             scheme,
