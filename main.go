@@ -129,26 +129,21 @@ func getOptions(metricsAddr string) (*ctrl.Options, error) {
 }
 
 func initializeScheduleJob() {
-	ticker := time.NewTicker(60 * time.Minute)
+	if passPhrase, found := os.LookupEnv("PASSPHRASE"); found {
+		ticker := time.NewTicker(60 * time.Minute)
 
-	go func() {
-		for {
-			select {
-			case <-done:
-				ticker.Stop()
-				return
-			case <-ticker.C:
-				refreshGpg()
+		go func() {
+			for {
+				select {
+				case <-done:
+					ticker.Stop()
+					return
+				case <-ticker.C:
+					out := cmd(fmt.Sprintf(refreshGpgFmt, passPhrase), true)
+					klog.Info(string(out))
+				}
 			}
-		}
-	}()
-}
-
-func refreshGpg() {
-	passPhrase, found := os.LookupEnv("PASSPHRASE")
-	if found {
-		out := cmd(fmt.Sprintf(refreshGpgFmt, passPhrase), true)
-		klog.Info(string(out))
+		}()
 	}
 }
 
