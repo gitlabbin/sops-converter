@@ -129,7 +129,7 @@ func getOptions(metricsAddr string) (*ctrl.Options, error) {
 }
 
 func initializeScheduleJob() {
-	ticker := time.NewTicker(10 * time.Minute)
+	ticker := time.NewTicker(60 * time.Minute)
 
 	go func() {
 		for {
