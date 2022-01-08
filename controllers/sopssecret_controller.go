@@ -99,8 +99,7 @@ func (r *SopsSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	log := r.Log.WithValues("sopssecret", req.NamespacedName)
 	// If not otherwise defined, default to the real decrypt func.
 	if r.Decryptor == nil {
-		realDecryptor := &SopsDecrytor{}
-		r.Decryptor = realDecryptor
+		r.Decryptor = &SopsDecrytor{}
 	}
 
 	// Attempt to fetch SopsSecret object. Short circuit if not exists
@@ -120,12 +119,7 @@ func (r *SopsSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	dt := obj.GetDeletionTimestamp()
-
-	var finalizersDisabled bool
-	finalizersDisabledByEnv, _ := strconv.ParseBool(os.Getenv("DISABLE_FINALIZERS"))
-	if finalizersDisabledByEnv || obj.Spec.SkipFinalizers {
-		finalizersDisabled = true
-	}
+	var finalizersDisabled = isFinalizersDisabled(obj)
 
 	// Cleanup secrets in namespaces no longer in spec.
 	ownershipLabelValue := fmt.Sprintf("%s.%s", obj.Name, obj.Namespace)
@@ -369,4 +363,14 @@ func hashItem(data []byte) string {
 	hash := sha1.Sum(data)
 	encodedHash := hex.EncodeToString(hash[:])
 	return encodedHash
+}
+
+func isFinalizersDisabled(obj *secretsv1beta1.SopsSecret) bool {
+	finalizersDisabled := false
+	finalizersDisabledByEnv, _ := strconv.ParseBool(os.Getenv("DISABLE_FINALIZERS"))
+	if finalizersDisabledByEnv || obj.Spec.SkipFinalizers {
+		finalizersDisabled = true
+	}
+
+	return finalizersDisabled
 }
