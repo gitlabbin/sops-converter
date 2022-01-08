@@ -42,8 +42,7 @@ const watchNamespaceEnvVar = "WATCH_NAMESPACE"
 const refreshGpgFmt = "echo %s | gpg --batch --always-trust --yes --passphrase-fd 0 --pinentry-mode=loopback -s $(mktemp)"
 
 var (
-	scheme   = runtime.NewScheme()
-	setupLog = ctrl.Log.WithName("setup")
+	scheme = runtime.NewScheme()
 
 	metricsAddr = ":8080"
 	done        = make(chan bool)
@@ -65,31 +64,31 @@ func main() {
 
 	mgr, err := initialConfiguration()
 	if err != nil {
-		setupLog.Error(err, "")
+		klog.Error(err, "")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
 
-	setupLog.Info("starting manager")
+	klog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-		setupLog.Error(err, "problem running manager")
+		klog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
 
-	setupLog.Info("Gracefully shutdown...")
+	klog.Info("Gracefully shutdown...")
 	done <- true //Gracefully shutdown
 }
 
 func initialConfiguration() (manager.Manager, error) {
 	options, err := getOptions()
 	if err != nil {
-		setupLog.Error(err, "unable to get WatchNamespace, "+
+		klog.Error(err, "unable to get WatchNamespace, "+
 			"the manager will watch and manage resources in all Namespaces")
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), *options)
 	if err != nil {
-		setupLog.Error(err, "unable to start manager")
+		klog.Error(err, "unable to start manager")
 		return nil, err
 	}
 
@@ -98,7 +97,7 @@ func initialConfiguration() (manager.Manager, error) {
 		Log:    ctrl.Log.WithName("controllers").WithName("SopsSecret"),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "SopsSecret")
+		klog.Error(err, "unable to create controller", "controller", "SopsSecret")
 		return nil, err
 	}
 
@@ -120,7 +119,7 @@ func getOptions() (*ctrl.Options, error) {
 
 	// Multi Namespaces in WATCH_NAMESPACE (e.g ns1,ns2)
 	if strings.Contains(ns, ",") {
-		setupLog.Info("manager set up with multiple namespaces", "namespaces", ns)
+		klog.Info("manager set up with multiple namespaces", "namespaces", ns)
 		// configure cluster-scoped with MultiNamespacedCacheBuilder
 		options.Namespace = ""
 		options.NewCache = cache.MultiNamespacedCacheBuilder(strings.Split(ns, ","))
