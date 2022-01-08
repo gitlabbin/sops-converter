@@ -22,7 +22,6 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -47,7 +46,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const SecretChecksumAnotation string = "secrets.dhouti.dev/secretChecksum"
+const SecretChecksumAnnotation string = "secrets.dhouti.dev/secretChecksum"
 const SopsChecksumAnnotation string = "secrets.dhouti.dev/sopsChecksum"
 
 const OwnershipLabel string = "secrets.dhouti.dev/owned-by-controller"
@@ -100,14 +99,12 @@ func (r *SopsSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	log := r.Log.WithValues("sopssecret", req.NamespacedName)
 	// If not otherwise defined, default to the real decrypt func.
 	if r.Decryptor == nil {
-		realDecryptor := &SopsDecrytor{}
-		r.Decryptor = realDecryptor
+		r.Decryptor = &SopsDecrytor{}
 	}
 
 	// Attempt to fetch SopsSecret object. Short circuit if not exists
 	obj := &secretsv1beta1.SopsSecret{}
-	err := r.Get(ctx, req.NamespacedName, obj)
-	if err != nil {
+	if err := r.Get(ctx, req.NamespacedName, obj); err != nil {
 		if k8serrors.IsNotFound(err) {
 			err = nil
 		}
@@ -122,20 +119,14 @@ func (r *SopsSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	dt := obj.GetDeletionTimestamp()
-
-	var finalizersDisabled bool
-	finalizersDisabledByEnv, _ := strconv.ParseBool(os.Getenv("DISABLE_FINALIZERS"))
-	if finalizersDisabledByEnv || obj.Spec.SkipFinalizers {
-		finalizersDisabled = true
-	}
+	var finalizersDisabled = isFinalizersDisabled(obj)
 
 	// Cleanup secrets in namespaces no longer in spec.
 	ownershipLabelValue := fmt.Sprintf("%s.%s", obj.Name, obj.Namespace)
 	secretList := &corev1.SecretList{}
-	err = r.List(ctx, secretList, client.MatchingLabels{
+	if err := r.List(ctx, secretList, client.MatchingLabels{
 		OwnershipLabel: ownershipLabelValue,
-	})
-	if err != nil {
+	}); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -147,8 +138,7 @@ func (r *SopsSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			}
 		}
 		if !foundItem {
-			err = r.Delete(ctx, &secretListItem)
-			if err != nil && !k8serrors.IsNotFound(err) {
+			if err := r.Delete(ctx, &secretListItem); err != nil && !k8serrors.IsNotFound(err) {
 				return ctrl.Result{}, err
 			}
 		}
@@ -157,9 +147,8 @@ func (r *SopsSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	// Add finalizer if not set and not currently being deleted
 	if dt.IsZero() && !controllerutil.ContainsFinalizer(obj, DeletionFinalizer) && !finalizersDisabled {
 		controllerutil.AddFinalizer(obj, DeletionFinalizer)
-		err = r.Update(ctx, obj)
-		if err != nil {
-			return ctrl.Result{Requeue: true}, errors.New("unable to update finalizers")
+		if err := r.Update(ctx, obj); err != nil {
+			return ctrl.Result{Requeue: true}, fmt.Errorf("unable to update finalizers %v", err)
 		}
 		return ctrl.Result{Requeue: true}, nil
 	}
@@ -167,9 +156,8 @@ func (r *SopsSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	// Delete finalizer if finalizer if they're disabled
 	if finalizersDisabled && controllerutil.ContainsFinalizer(obj, DeletionFinalizer) {
 		controllerutil.RemoveFinalizer(obj, DeletionFinalizer)
-		err = r.Update(ctx, obj)
-		if err != nil {
-			return ctrl.Result{Requeue: true}, errors.New("unable to remove finalizers")
+		if err := r.Update(ctx, obj); err != nil {
+			return ctrl.Result{Requeue: true}, fmt.Errorf("unable to remove finalizers %v", err)
 		}
 		return ctrl.Result{Requeue: true}, nil
 	}
@@ -196,7 +184,7 @@ func (r *SopsSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		}
 	}
 
-	return ctrl.Result{Requeue: requeue}, err
+	return ctrl.Result{Requeue: requeue}, nil
 }
 
 func (r *SopsSecretReconciler) ReconcileNamespace(ctx context.Context, log logr.Logger, finalizersDisabled bool, obj *secretsv1beta1.SopsSecret, secretDestination types.NamespacedName) (ctrl.Result, error) {
@@ -232,7 +220,7 @@ func (r *SopsSecretReconciler) ReconcileNamespace(ctx context.Context, log logr.
 			controllerutil.RemoveFinalizer(obj, DeletionFinalizer)
 			err = r.Update(ctx, obj)
 			if err != nil {
-				return ctrl.Result{Requeue: true}, errors.New("unable to remove finalizer")
+				return ctrl.Result{Requeue: true}, fmt.Errorf("unable to remove finalizer %v", err)
 			}
 		}
 	}
@@ -251,7 +239,7 @@ func (r *SopsSecretReconciler) ReconcileNamespace(ctx context.Context, log logr.
 	if obj.Spec.Template.Annotations != nil {
 		secretAnnotations = obj.Spec.Template.Annotations
 	}
-	secretAnnotations[SecretChecksumAnotation] = currentSecretChecksum
+	secretAnnotations[SecretChecksumAnnotation] = currentSecretChecksum
 	secretAnnotations[SopsChecksumAnnotation] = currentSopsChecksum
 
 	// Handle labels from template
@@ -263,7 +251,7 @@ func (r *SopsSecretReconciler) ReconcileNamespace(ctx context.Context, log logr.
 	ownershipLabelValue := fmt.Sprintf("%s.%s", obj.Name, obj.Namespace)
 	secretLabels[OwnershipLabel] = string(ownershipLabelValue)
 
-	existingSecretChecksum, hasSecretChecksum := fetchSecret.Annotations[SecretChecksumAnotation]
+	existingSecretChecksum, hasSecretChecksum := fetchSecret.Annotations[SecretChecksumAnnotation]
 	existingSopsChecksum, hasSopsChecksum := fetchSecret.Annotations[SopsChecksumAnnotation]
 	if hasSecretChecksum && hasSopsChecksum &&
 		existingSecretChecksum == currentSecretChecksum &&
@@ -315,7 +303,7 @@ func (r *SopsSecretReconciler) ReconcileNamespace(ctx context.Context, log logr.
 		return ctrl.Result{}, err
 	}
 	currentSecretChecksum = hashItem(secretDataBytes)
-	secretAnnotations[SecretChecksumAnotation] = currentSecretChecksum
+	secretAnnotations[SecretChecksumAnnotation] = currentSecretChecksum
 
 	generatedSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -375,4 +363,14 @@ func hashItem(data []byte) string {
 	hash := sha1.Sum(data)
 	encodedHash := hex.EncodeToString(hash[:])
 	return encodedHash
+}
+
+func isFinalizersDisabled(obj *secretsv1beta1.SopsSecret) bool {
+	finalizersDisabled := false
+	finalizersDisabledByEnv, _ := strconv.ParseBool(os.Getenv("DISABLE_FINALIZERS"))
+	if finalizersDisabledByEnv || obj.Spec.SkipFinalizers {
+		finalizersDisabled = true
+	}
+
+	return finalizersDisabled
 }
