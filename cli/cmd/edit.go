@@ -25,11 +25,17 @@ import (
 	"os/exec"
 
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 	"k8s.io/client-go/kubernetes/scheme"
 
 	secretsv1beta1 "github.com/dhouti/sops-converter/api/v1beta1"
 )
+
+type MapSlice []MapItem
+
+type MapItem struct {
+	Key, Value interface{}
+}
 
 // editCmd represents the edit command
 var editCmd = &cobra.Command{
@@ -53,9 +59,9 @@ var editCmd = &cobra.Command{
 			return err
 		}
 
-		var allDocuments []yaml.MapSlice
+		var allDocuments []MapSlice
 		// Parse out multiple objects
-		var originalYaml yaml.MapSlice
+		var originalYaml MapSlice
 		decoder := yaml.NewDecoder(bytes.NewReader(targetFile))
 		for decoder.Decode(&originalYaml) == nil {
 			allDocuments = append(allDocuments, originalYaml)
