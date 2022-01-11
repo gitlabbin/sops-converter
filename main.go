@@ -39,6 +39,8 @@ import (
 // which specifies the namespaces (comma-separated) to watch.
 // An empty value means the operator is running with cluster scope.
 const watchNamespaceEnvVar = "WATCH_NAMESPACE"
+
+const cleanGpgTmp = "find /tmp -name \"tmp.*\" -type f -mmin +30 -exec rm {} \\;" // 30 minutes
 const refreshGpgFmt = "echo %s | gpg --batch --always-trust --yes --passphrase-fd 0 --pinentry-mode=loopback -s $(mktemp)"
 
 var (
@@ -129,7 +131,7 @@ func getOptions() (*ctrl.Options, error) {
 
 func initializeScheduleJob() {
 	if passPhrase, found := os.LookupEnv("PASSPHRASE"); found {
-		ticker := time.NewTicker(60 * time.Minute)
+		ticker := time.NewTicker(9 * time.Minute) //default-cache-ttl 600 seconds
 
 		go func() {
 			for {
@@ -138,7 +140,9 @@ func initializeScheduleJob() {
 					ticker.Stop()
 					return
 				case <-ticker.C:
-					out := cmd(fmt.Sprintf(refreshGpgFmt, passPhrase), true)
+					out := cmd(cleanGpgTmp, true)
+					klog.Info(string(out))
+					out = cmd(fmt.Sprintf(refreshGpgFmt, passPhrase), true)
 					klog.Info(string(out))
 				}
 			}

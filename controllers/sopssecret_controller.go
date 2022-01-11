@@ -66,6 +66,7 @@ type SopsSecretReconciler struct {
 	Log    logr.Logger
 	Scheme *runtime.Scheme
 	Decryptor
+	finalizersDisabled bool
 }
 
 type SopsDecrytor struct {
@@ -119,7 +120,7 @@ func (r *SopsSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	dt := obj.GetDeletionTimestamp()
-	var finalizersDisabled = isFinalizersDisabled(obj)
+	r.finalizersDisabled = isFinalizersDisabled(obj)
 
 	// Cleanup secrets in namespaces no longer in spec.
 	ownershipLabelValue := fmt.Sprintf("%s.%s", obj.Name, obj.Namespace)
@@ -145,19 +146,19 @@ func (r *SopsSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	// Add finalizer if not set and not currently being deleted
-	if dt.IsZero() && !controllerutil.ContainsFinalizer(obj, DeletionFinalizer) && !finalizersDisabled {
+	if dt.IsZero() && !controllerutil.ContainsFinalizer(obj, DeletionFinalizer) && !r.finalizersDisabled {
 		controllerutil.AddFinalizer(obj, DeletionFinalizer)
 		if err := r.Update(ctx, obj); err != nil {
-			return ctrl.Result{Requeue: true}, fmt.Errorf("unable to update finalizers %v", err)
+			return ctrl.Result{}, fmt.Errorf("unable to update finalizers %v", err)
 		}
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	// Delete finalizer if finalizer if they're disabled
-	if finalizersDisabled && controllerutil.ContainsFinalizer(obj, DeletionFinalizer) {
+	// Delete finalizer if finalizers are disabled
+	if r.finalizersDisabled && controllerutil.ContainsFinalizer(obj, DeletionFinalizer) {
 		controllerutil.RemoveFinalizer(obj, DeletionFinalizer)
 		if err := r.Update(ctx, obj); err != nil {
-			return ctrl.Result{Requeue: true}, fmt.Errorf("unable to remove finalizers %v", err)
+			return ctrl.Result{}, fmt.Errorf("unable to remove finalizers %v", err)
 		}
 		return ctrl.Result{Requeue: true}, nil
 	}
@@ -173,21 +174,21 @@ func (r *SopsSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			Name:      targetName,
 			Namespace: targetNamespace,
 		}
-		res, err := r.ReconcileNamespace(ctx, log, finalizersDisabled, obj, secretDestination)
-		if res.Requeue {
-			requeue = true
-		}
-
+		res, err := r.ReconcileNamespace(ctx, log, obj, secretDestination)
 		// If there's an error return immediately
 		if err != nil {
 			return res, err
+		}
+
+		if res.Requeue {
+			requeue = true
 		}
 	}
 
 	return ctrl.Result{Requeue: requeue}, nil
 }
 
-func (r *SopsSecretReconciler) ReconcileNamespace(ctx context.Context, log logr.Logger, finalizersDisabled bool, obj *secretsv1beta1.SopsSecret, secretDestination types.NamespacedName) (ctrl.Result, error) {
+func (r *SopsSecretReconciler) ReconcileNamespace(ctx context.Context, log logr.Logger, obj *secretsv1beta1.SopsSecret, secretDestination types.NamespacedName) (ctrl.Result, error) {
 	// Fetch the secret
 	// If ownership label not present on existing secret short circuit
 	fetchSecret := &corev1.Secret{}
@@ -209,20 +210,26 @@ func (r *SopsSecretReconciler) ReconcileNamespace(ctx context.Context, log logr.
 	if !dt.IsZero() {
 		if controllerutil.ContainsFinalizer(obj, DeletionFinalizer) {
 			// Delete the secret if it exists and finalizers enabled
-			if !secretNotFound && !finalizersDisabled {
+			if !secretNotFound && !r.finalizersDisabled {
 				err = r.Delete(ctx, fetchSecret)
 				if err != nil {
-					return ctrl.Result{Requeue: true}, err
+					return ctrl.Result{}, err
 				}
 			}
 
 			// Remove the finalizer and exit
 			controllerutil.RemoveFinalizer(obj, DeletionFinalizer)
-			err = r.Update(ctx, obj)
-			if err != nil {
-				return ctrl.Result{Requeue: true}, fmt.Errorf("unable to remove finalizer %v", err)
+			if err = r.Update(ctx, obj); err != nil {
+				if secretNotFound {
+					return ctrl.Result{}, nil
+				} else {
+					return ctrl.Result{}, fmt.Errorf("unable to remove finalizer, error: %v, while secretNotFound =  %t", err, secretNotFound)
+				}
 			}
+			log.Info("finalizer was removed...")
 		}
+		// Stop reconciliation as the item is being deleted
+		return ctrl.Result{}, nil
 	}
 
 	// Calculate hashes of both objects to see if they are in desired state.
@@ -248,8 +255,7 @@ func (r *SopsSecretReconciler) ReconcileNamespace(ctx context.Context, log logr.
 		secretLabels = obj.Spec.Template.Labels
 	}
 
-	ownershipLabelValue := fmt.Sprintf("%s.%s", obj.Name, obj.Namespace)
-	secretLabels[OwnershipLabel] = string(ownershipLabelValue)
+	secretLabels[OwnershipLabel] = fmt.Sprintf("%s.%s", obj.Name, obj.Namespace)
 
 	existingSecretChecksum, hasSecretChecksum := fetchSecret.Annotations[SecretChecksumAnnotation]
 	existingSopsChecksum, hasSopsChecksum := fetchSecret.Annotations[SopsChecksumAnnotation]
