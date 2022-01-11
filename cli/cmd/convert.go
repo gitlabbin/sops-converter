@@ -20,14 +20,15 @@ import (
 	"bytes"
 	"errors"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/yaml"
 
 	secretsv1beta1 "github.com/dhouti/sops-converter/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -76,6 +77,7 @@ var convertCmd = &cobra.Command{
 
 		secretData, err := yaml.Marshal(tmpSecretData)
 		if err != nil {
+			log.Fatalf("[FATAL] yaml.Marshal error: %v", err)
 			return err
 		}
 
@@ -126,5 +128,6 @@ var convertCmd = &cobra.Command{
 }
 
 func init() {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	rootCmd.AddCommand(convertCmd)
 }
