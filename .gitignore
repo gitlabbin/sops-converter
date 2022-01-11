@@ -28,3 +28,4 @@ config
 *_mock.go
 
 dist/
+INSTALL.md
