@@ -18,6 +18,7 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -43,5 +44,6 @@ func Execute() {
 }
 
 func init() {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	secretsv1beta1.AddToScheme(scheme.Scheme)
 }
