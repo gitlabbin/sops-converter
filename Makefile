@@ -17,10 +17,19 @@ build: generate manifests fmt vet
 	go build -o bin/sops-converter github.com/dhouti/sops-converter/cli
 	go build -o bin/controller github.com/dhouti/sops-converter
 
+release-cli: build-cli zip-cli
+
 build-cli: generate manifests fmt vet
 	GOOS=darwin GOARCH=amd64 go build -o bin/sops-converter-cli-darwin-amd64 github.com/dhouti/sops-converter/cli
 	GOOS=linux GOARCH=amd64 go build -o bin/sops-converter-cli-linux-amd64 github.com/dhouti/sops-converter/cli
 	GOOS=linux GOARCH=arm64 go build -o bin/sops-converter-cli-linux-arm64 github.com/dhouti/sops-converter/cli
+	GOOS=windows GOARCH=amd64 go build -o bin/sops-converter-cli-windows-amd64 github.com/dhouti/sops-converter/cli
+
+zip-cli:
+	zip -rq bin/sops-converter-cli-windows-amd64.zip bin/sops-converter-cli-windows-amd64
+	tar czf bin/sops-converter-cli-darwin-amd64.tgz bin/sops-converter-cli-darwin-amd64
+	tar czf bin/sops-converter-cli-linux-amd64.tgz bin/sops-converter-cli-linux-amd64
+	tar czf bin/sops-converter-cli-linux-arm64.tgz bin/sops-converter-cli-linux-arm64
 
 # Run tests
 test: generate mocks manifests fmt vet

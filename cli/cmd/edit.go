@@ -26,7 +26,7 @@ import (
 	"os/exec"
 
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 	"k8s.io/client-go/kubernetes/scheme"
 
 	secretsv1beta1 "github.com/dhouti/sops-converter/api/v1beta1"
@@ -54,9 +54,9 @@ var editCmd = &cobra.Command{
 			return err
 		}
 
-		var allDocuments []yaml.MapSlice
+		var allDocuments []yaml.Node
 		// Parse out multiple objects
-		var originalYaml yaml.MapSlice
+		var originalYaml yaml.Node
 		decoder := yaml.NewDecoder(bytes.NewReader(targetFile))
 		for decoder.Decode(&originalYaml) == nil {
 			allDocuments = append(allDocuments, originalYaml)
@@ -65,7 +65,7 @@ var editCmd = &cobra.Command{
 		allObjects := map[int]*secretsv1beta1.SopsSecret{}
 		for index, document := range allDocuments {
 			// Convert back to yaml to parse again.
-			documentBytes, err := yaml.Marshal(document)
+			documentBytes, err := yaml.Marshal(&document)
 			if err != nil {
 				log.Fatalf("[FATAL] yaml.Marshal error: %v", err)
 				return err
@@ -135,28 +135,30 @@ var editCmd = &cobra.Command{
 			return err
 		}
 
-		// Using yaml.MapSlice to preserve key order.
-		for index, item := range targetYamlMap {
-			keyString, ok := item.Key.(string)
-			if ok && keyString == "data" {
-				item.Value = string(tmpfileContents)
-				targetYamlMap[index] = item
+		// update data
+		appIdx := -1
+		for i, k := range targetYamlMap.Content[0].Content {
+			if k.Value == "data" {
+				appIdx = i + 1
 				break
 			}
 		}
+		targetYamlMap.Content[0].Content[appIdx].Value = string(tmpfileContents)
 
 		allDocuments[targetIndex] = targetYamlMap
 		var outBuffer bytes.Buffer
-		for _, document := range allDocuments {
-			if document == nil {
+		for index, document := range allDocuments {
+			if document.Content == nil {
 				continue
 			}
-			out, err := yaml.Marshal(document)
+			out, err := yaml.Marshal(&document)
 			if err != nil {
 				return err
 			}
 			outBuffer.Write(out)
-			outBuffer.Write([]byte("---\n"))
+			if index < len(allDocuments)-1 {
+				outBuffer.Write([]byte("---\n"))
+			}
 		}
 
 		err = ioutil.WriteFile(args[0], outBuffer.Bytes(), finfo.Mode())
