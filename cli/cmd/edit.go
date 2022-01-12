@@ -21,21 +21,16 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v2"
 	"k8s.io/client-go/kubernetes/scheme"
 
 	secretsv1beta1 "github.com/dhouti/sops-converter/api/v1beta1"
 )
-
-type MapSlice []MapItem
-
-type MapItem struct {
-	Key, Value interface{}
-}
 
 // editCmd represents the edit command
 var editCmd = &cobra.Command{
@@ -59,9 +54,9 @@ var editCmd = &cobra.Command{
 			return err
 		}
 
-		var allDocuments []MapSlice
+		var allDocuments []yaml.MapSlice
 		// Parse out multiple objects
-		var originalYaml MapSlice
+		var originalYaml yaml.MapSlice
 		decoder := yaml.NewDecoder(bytes.NewReader(targetFile))
 		for decoder.Decode(&originalYaml) == nil {
 			allDocuments = append(allDocuments, originalYaml)
@@ -72,6 +67,7 @@ var editCmd = &cobra.Command{
 			// Convert back to yaml to parse again.
 			documentBytes, err := yaml.Marshal(document)
 			if err != nil {
+				log.Fatalf("[FATAL] yaml.Marshal error: %v", err)
 				return err
 			}
 
