@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 
@@ -66,6 +67,7 @@ var editCmd = &cobra.Command{
 			// Convert back to yaml to parse again.
 			documentBytes, err := yaml.Marshal(document)
 			if err != nil {
+				log.Fatalf("[FATAL] yaml.Marshal error: %v", err)
 				return err
 			}
 
