@@ -16,7 +16,14 @@ limitations under the License.
 
 package main
 
-import "github.com/dhouti/sops-converter/cli/cmd"
+import (
+	"github.com/dhouti/sops-converter/cli/cmd"
+	"github.com/dhouti/sops-converter/cli/logger"
+)
+
+func init() {
+	logger.ConfigureLogging(nil)
+}
 
 func main() {
 	cmd.Execute()
