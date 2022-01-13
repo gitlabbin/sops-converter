@@ -45,19 +45,12 @@ var convertCmd = &cobra.Command{
 	Short:              "Converts a kubernetes Secret file to a SopsSecret.",
 	Long:               ``,
 	DisableFlagParsing: true,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		o := &convertOptions{}
 
-		if err := o.validate(args); err != nil {
-			return err
-		}
-
-		if err := o.complete(args); err != nil {
-			return err
-		}
-
-		return o.process(args)
-
+		HandleError(o.validate(args))
+		HandleError(o.complete(args))
+		HandleError(o.process(args))
 	},
 }
 

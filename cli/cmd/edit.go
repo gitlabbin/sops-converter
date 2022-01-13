@@ -44,18 +44,12 @@ var editCmd = &cobra.Command{
 	Short: "Opens and decrypts a SopsSecret.",
 	Long: `Opens a SopsSecret manifest, decrypts it,
 		and loads it into the $EDITOR of your choice.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		o := &editOptions{}
 
-		if err := o.validate(args); err != nil {
-			return err
-		}
-
-		if err := o.complete(args); err != nil {
-			return err
-		}
-
-		return o.process(args)
+		HandleError(o.validate(args))
+		HandleError(o.complete(args))
+		HandleError(o.process(args))
 	},
 }
 
@@ -170,6 +164,9 @@ func (o *editOptions) process(args []string) error {
 			// an ExitStatus() method with the same signature.
 			if status, ok := exitErr.Sys().(syscall.WaitStatus); ok {
 				log.Printf("sops Exit Status: %d", status.ExitStatus())
+				if status.ExitStatus() == 200 {
+					return nil
+				}
 			}
 		} else {
 			log.Errorf("sops cmd.Run failed on: %v", err)
