@@ -21,10 +21,11 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/exec"
+	"syscall"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -74,6 +75,7 @@ var editCmd = &cobra.Command{
 			// Convert manifest to runtime.Object to see if it's a SopsSecret
 			m, _, err := scheme.Codecs.UniversalDeserializer().Decode(documentBytes, nil, nil)
 			if err != nil {
+				log.Warnf("decode failed on: %v", err)
 				continue
 			}
 
@@ -121,6 +123,19 @@ var editCmd = &cobra.Command{
 		sopsCommand.Stderr = os.Stderr
 		err = sopsCommand.Run()
 		if err != nil {
+			if exitErr, ok := err.(*exec.ExitError); ok {
+				// The program has exited with an exit code != 0
+
+				// This works on both Unix and Windows. Although package
+				// syscall is generally platform dependent, WaitStatus is
+				// defined for both Unix and Windows and in both cases has
+				// an ExitStatus() method with the same signature.
+				if status, ok := exitErr.Sys().(syscall.WaitStatus); ok {
+					log.Printf("sops Exit Status: %d", status.ExitStatus())
+				}
+			} else {
+				log.Errorf("sops cmd.Run failed on: %v", err)
+			}
 			return err
 		}
 
@@ -153,6 +168,7 @@ var editCmd = &cobra.Command{
 			}
 			out, err := yaml.Marshal(&document)
 			if err != nil {
+				log.Fatalf("yaml Marshal failed on: %v", err)
 				return err
 			}
 			outBuffer.Write(out)

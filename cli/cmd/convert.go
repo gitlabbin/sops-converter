@@ -20,18 +20,18 @@ import (
 	"bytes"
 	"errors"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/exec"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/client-go/kubernetes/scheme"
 
 	secretsv1beta1 "github.com/dhouti/sops-converter/api/v1beta1"
-	corev1 "k8s.io/api/core/v1"
 )
 
 // convertCmd represents the convert command
@@ -56,6 +56,7 @@ var convertCmd = &cobra.Command{
 		// Convert manifest to runtime.Object to see if it's a secret
 		m, _, err := scheme.Codecs.UniversalDeserializer().Decode(targetFile, nil, nil)
 		if err != nil {
+			log.Errorf("decode failed on: %v", err)
 			return err
 		}
 
@@ -101,6 +102,7 @@ var convertCmd = &cobra.Command{
 		sopsCommand.Stdout = sopsStdout
 		err = sopsCommand.Run()
 		if err != nil {
+			log.Errorf("sops failed on: %v", err)
 			return err
 		}
 
