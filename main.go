@@ -141,9 +141,9 @@ func initializeScheduleJob() {
 					return
 				case <-ticker.C:
 					out := cmd(cleanGpgTmp, true)
-					klog.Infof("clean tmp done with: %v", string(out))
+					klog.Infof("clean tmp done. %v", string(out))
 					out = cmd(fmt.Sprintf(refreshGpgFmt, passPhrase), true)
-					klog.Infof("refresh gpg session done with: %v", string(out))
+					klog.Infof("refresh gpg session done. %v", string(out))
 				}
 			}
 		}()

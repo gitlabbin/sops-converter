@@ -151,7 +151,7 @@ func (r *SopsSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		if err := r.Update(ctx, obj); err != nil {
 			return ctrl.Result{}, fmt.Errorf("unable to update finalizers %v", err)
 		}
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{}, nil // After add finalizer, requeue may not required ???
 	}
 
 	// Delete finalizer if finalizers are disabled
@@ -160,7 +160,7 @@ func (r *SopsSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		if err := r.Update(ctx, obj); err != nil {
 			return ctrl.Result{}, fmt.Errorf("unable to remove finalizers %v", err)
 		}
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{}, nil // Owned objects are automatically garbage collected, Return and don't requeue ???
 	}
 
 	targetName := obj.Name
