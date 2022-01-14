@@ -19,7 +19,9 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"runtime"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/kubernetes/scheme"
 
@@ -44,4 +46,17 @@ func Execute() {
 
 func init() {
 	secretsv1beta1.AddToScheme(scheme.Scheme)
+}
+
+func HandleError(err error) (b bool) {
+	if err != nil {
+		// notice that we're using 1, so it will actually log the where
+		// the error happened, 0 = this function, we don't want that.
+		pc, fn, line, _ := runtime.Caller(1)
+
+		log.Errorf("[error] in %s[%s:%d] %v", runtime.FuncForPC(pc).Name(), fn, line, err)
+		os.Exit(1)
+		return true
+	}
+	return false
 }

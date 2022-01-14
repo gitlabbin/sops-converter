@@ -37,6 +37,8 @@ spec:
             - sh
             - '-c'
             - >-
+              mkdir -p ${GNUPGHOME};
+              chmod 700 ${GNUPGHOME};
               gpg --batch --import /var/secrets/gpg-secrets/gpg-key-secret;
               gpg --import-ownertrust /var/secrets/gpg-secrets/gpg-ownertrust-secret;
               echo ${PASSPHRASE} | gpg --batch --always-trust --yes --passphrase-fd 0 --pinentry-mode=loopback -s $(mktemp)
@@ -44,7 +46,7 @@ spec:
             - name: GPG_TTY
               value: "$(tty)"
             - name: GNUPGHOME
-              value: /var/secrets/gpg
+              value: /var/secrets/gpg/.gpg
             - name: PASSPHRASE
               valueFrom:
                 secretKeyRef:
@@ -71,7 +73,7 @@ spec:
             - name: GPG_TTY
               value: "$(tty)"
             - name: GNUPGHOME
-              value: /var/secrets/gpg
+              value: /var/secrets/gpg/.gpg
             - name: PASSPHRASE
               valueFrom:
                 secretKeyRef:
