@@ -51,9 +51,8 @@ import (
 const (
 	SecretChecksumAnnotation = "secrets.dhouti.dev/secretChecksum"
 	SopsChecksumAnnotation   = "secrets.dhouti.dev/sopsChecksum"
-
-	OwnershipLabel    = "secrets.dhouti.dev/owned-by-controller"
-	DeletionFinalizer = "secrets.dhouti.dev/garbageCollection"
+	OwnershipLabel           = "secrets.dhouti.dev/owned-by-controller"
+	DeletionFinalizer        = "secrets.dhouti.dev/garbageCollection"
 )
 
 var _ Decryptor = &SopsDecrytor{}
