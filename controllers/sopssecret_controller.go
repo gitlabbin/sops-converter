@@ -103,13 +103,7 @@ func (r *SopsSecretReconciler) InjectDecryptor(d Decryptor) {
 
 func (r *SopsSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := r.Log.WithValues("sopssecret", req.NamespacedName)
-	// If not otherwise defined, default to the real decrypt func.
-	if r.Decryptor == nil {
-		r.Decryptor = &SopsDecrytor{}
-	}
-	if r.finalizersDisabled == nil {
-		r.finalizersDisabled = atomic.NewBool(false)
-	}
+	r.initReconciler()
 
 	// Attempt to fetch SopsSecret object. Short circuit if not exists
 	obj := &secretsv1beta1.SopsSecret{}
@@ -127,7 +121,6 @@ func (r *SopsSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		}
 	}
 
-	dt := obj.GetDeletionTimestamp()
 	r.checkFinalizersDisabled(obj)
 
 	// Cleanup secrets in namespaces no longer in spec.
@@ -154,7 +147,7 @@ func (r *SopsSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	// Add finalizer if not set and not currently being deleted
-	if dt.IsZero() && !controllerutil.ContainsFinalizer(obj, DeletionFinalizer) && !r.finalizersDisabled.Load() {
+	if obj.GetDeletionTimestamp().IsZero() && !controllerutil.ContainsFinalizer(obj, DeletionFinalizer) && !r.finalizersDisabled.Load() {
 		controllerutil.AddFinalizer(obj, DeletionFinalizer)
 		if err := r.Update(ctx, obj); err != nil {
 			return ctrl.Result{}, fmt.Errorf("unable to update finalizers %v", err)
@@ -385,5 +378,17 @@ func (r *SopsSecretReconciler) checkFinalizersDisabled(obj *secretsv1beta1.SopsS
 	finalizersDisabledByEnv, _ := strconv.ParseBool(os.Getenv("DISABLE_FINALIZERS"))
 	if finalizersDisabledByEnv || obj.Spec.SkipFinalizers {
 		r.finalizersDisabled.Store(true)
+	}
+}
+
+func (r *SopsSecretReconciler) initReconciler() {
+	lock.Lock()
+	defer lock.Unlock()
+	// If not otherwise defined, default to the real decrypt func.
+	if r.Decryptor == nil {
+		r.Decryptor = &SopsDecrytor{}
+	}
+	if r.finalizersDisabled == nil {
+		r.finalizersDisabled = atomic.NewBool(false)
 	}
 }
