@@ -38,14 +38,14 @@ import (
 // watchNamespaceEnvVar is the constant for env variable WATCH_NAMESPACE
 // which specifies the namespaces (comma-separated) to watch.
 // An empty value means the operator is running with cluster scope.
-const watchNamespaceEnvVar = "WATCH_NAMESPACE"
-
-const cleanGpgTmp = "find /tmp -name \"tmp.*\" -type f -mmin +30 -exec rm {} \\;" // 30 minutes
-const refreshGpgFmt = "echo %s | gpg --batch --always-trust --yes --passphrase-fd 0 --pinentry-mode=loopback -s $(mktemp)"
+const (
+	watchNamespaceEnvVar = "WATCH_NAMESPACE"
+	cleanGpgTmp          = "find /tmp -name \"tmp.*\" -type f -mmin +30 -exec rm {} \\;" // 30 minutes
+	refreshGpgFmt        = "echo %s | gpg --batch --always-trust --yes --passphrase-fd 0 --pinentry-mode=loopback -s $(mktemp)"
+)
 
 var (
-	scheme = runtime.NewScheme()
-
+	scheme      = runtime.NewScheme()
 	metricsAddr = ":8080"
 	done        = make(chan bool)
 )
