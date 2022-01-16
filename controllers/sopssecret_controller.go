@@ -23,11 +23,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"go.uber.org/atomic"
 	"os"
 	"os/exec"
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/go-logr/logr"
 	"gopkg.in/yaml.v3"
@@ -46,14 +48,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const SecretChecksumAnnotation string = "secrets.dhouti.dev/secretChecksum"
-const SopsChecksumAnnotation string = "secrets.dhouti.dev/sopsChecksum"
+const (
+	SecretChecksumAnnotation = "secrets.dhouti.dev/secretChecksum"
+	SopsChecksumAnnotation   = "secrets.dhouti.dev/sopsChecksum"
 
-const OwnershipLabel string = "secrets.dhouti.dev/owned-by-controller"
-
-const DeletionFinalizer string = "secrets.dhouti.dev/garbageCollection"
+	OwnershipLabel    = "secrets.dhouti.dev/owned-by-controller"
+	DeletionFinalizer = "secrets.dhouti.dev/garbageCollection"
+)
 
 var _ Decryptor = &SopsDecrytor{}
+var lock sync.Mutex
 
 //go:generate moq -out mocks/decryptor_mock.go -pkg controllers_mocks . Decryptor
 type Decryptor interface {
@@ -66,7 +70,8 @@ type SopsSecretReconciler struct {
 	Log    logr.Logger
 	Scheme *runtime.Scheme
 	Decryptor
-	finalizersDisabled bool
+
+	finalizersDisabled *atomic.Bool
 }
 
 type SopsDecrytor struct {
@@ -102,6 +107,9 @@ func (r *SopsSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	if r.Decryptor == nil {
 		r.Decryptor = &SopsDecrytor{}
 	}
+	if r.finalizersDisabled == nil {
+		r.finalizersDisabled = atomic.NewBool(false)
+	}
 
 	// Attempt to fetch SopsSecret object. Short circuit if not exists
 	obj := &secretsv1beta1.SopsSecret{}
@@ -120,7 +128,7 @@ func (r *SopsSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	dt := obj.GetDeletionTimestamp()
-	r.finalizersDisabled = isFinalizersDisabled(obj)
+	r.checkFinalizersDisabled(obj)
 
 	// Cleanup secrets in namespaces no longer in spec.
 	ownershipLabelValue := fmt.Sprintf("%s.%s", obj.Name, obj.Namespace)
@@ -146,7 +154,7 @@ func (r *SopsSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	// Add finalizer if not set and not currently being deleted
-	if dt.IsZero() && !controllerutil.ContainsFinalizer(obj, DeletionFinalizer) && !r.finalizersDisabled {
+	if dt.IsZero() && !controllerutil.ContainsFinalizer(obj, DeletionFinalizer) && !r.finalizersDisabled.Load() {
 		controllerutil.AddFinalizer(obj, DeletionFinalizer)
 		if err := r.Update(ctx, obj); err != nil {
 			return ctrl.Result{}, fmt.Errorf("unable to update finalizers %v", err)
@@ -155,7 +163,7 @@ func (r *SopsSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	// Delete finalizer if finalizers are disabled
-	if r.finalizersDisabled && controllerutil.ContainsFinalizer(obj, DeletionFinalizer) {
+	if r.finalizersDisabled.Load() && controllerutil.ContainsFinalizer(obj, DeletionFinalizer) {
 		controllerutil.RemoveFinalizer(obj, DeletionFinalizer)
 		if err := r.Update(ctx, obj); err != nil {
 			return ctrl.Result{}, fmt.Errorf("unable to remove finalizers %v", err)
@@ -210,7 +218,7 @@ func (r *SopsSecretReconciler) ReconcileNamespace(ctx context.Context, log logr.
 	if !dt.IsZero() {
 		if controllerutil.ContainsFinalizer(obj, DeletionFinalizer) {
 			// Delete the secret if it exists and finalizers enabled
-			if !secretNotFound && !r.finalizersDisabled {
+			if !secretNotFound && !r.finalizersDisabled.Load() {
 				err = r.Delete(ctx, fetchSecret)
 				if err != nil {
 					return ctrl.Result{}, err
@@ -371,12 +379,11 @@ func hashItem(data []byte) string {
 	return encodedHash
 }
 
-func isFinalizersDisabled(obj *secretsv1beta1.SopsSecret) bool {
-	finalizersDisabled := false
+func (r *SopsSecretReconciler) checkFinalizersDisabled(obj *secretsv1beta1.SopsSecret) {
+	lock.Lock()
+	defer lock.Unlock()
 	finalizersDisabledByEnv, _ := strconv.ParseBool(os.Getenv("DISABLE_FINALIZERS"))
 	if finalizersDisabledByEnv || obj.Spec.SkipFinalizers {
-		finalizersDisabled = true
+		r.finalizersDisabled.Store(true)
 	}
-
-	return finalizersDisabled
 }
