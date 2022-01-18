@@ -27,6 +27,7 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/klog/v2/klogr"
 	"os"
+	goruntime "runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -60,14 +61,22 @@ func init() {
 	// +kubebuilder:scaffold:scheme
 }
 
+func printVersion() {
+	klog.Info(fmt.Sprintf("Version: %s", AppVersion))
+	klog.Info(fmt.Sprintf("Go Version: %s", goruntime.Version()))
+	klog.Info(fmt.Sprintf("Go OS/Arch: %s/%s", goruntime.GOOS, goruntime.GOARCH))
+	klog.Info(fmt.Sprintf("Git Commit: %s", GitCommit))
+	klog.Info(fmt.Sprintf("BuildDate: %s", BuildDate))
+}
+
 func main() {
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	klog.InitFlags(nil)
 	flag.Parse()
+	printVersion()
 
 	ctrl.SetLogger(klogr.New())
 	initializeScheduleJob()
-	util.PrintAppVersion(AppVersion, GitCommit, BuildDate)
 
 	mgr, err := initialConfiguration()
 	if err != nil {
