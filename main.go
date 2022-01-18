@@ -67,6 +67,7 @@ func main() {
 
 	ctrl.SetLogger(klogr.New())
 	initializeScheduleJob()
+	controllers.PrintAppVersion(AppVersion, GitCommit, BuildDate)
 
 	mgr, err := initialConfiguration()
 	if err != nil {
@@ -82,7 +83,9 @@ func main() {
 	}
 
 	klog.Info("Gracefully shutdown...")
-	done <- true //Gracefully shutdown
+	if _, found := os.LookupEnv("PASSPHRASE"); found {
+		done <- true //Gracefully shutdown
+	}
 }
 
 func initialConfiguration() (manager.Manager, error) {
@@ -142,6 +145,7 @@ func initializeScheduleJob() {
 				select {
 				case <-done:
 					ticker.Stop()
+					klog.Info("scheduler stopped...")
 					return
 				case <-ticker.C:
 					out := cmd(cleanGpgTmp, true)

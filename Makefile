@@ -4,7 +4,7 @@ VERSION ?= $(shell git describe --tags --always --dirty --match=v* 2> /dev/null 
 			cat $(CURDIR)/.version 2> /dev/null || echo v0)
 GIT_COMMIT_ID ?= $(shell git rev-parse --short HEAD)
 
-LDFLAGS = "-X main.Version=$(VERSION) -X main.BuildDate=$(DATE) -X main.GitCommit=$(GIT_COMMIT_ID)"
+LDFLAGS = "-X main.AppVersion=$(VERSION) -X main.BuildDate=$(DATE) -X main.GitCommit=$(GIT_COMMIT_ID)"
 
 # Image URL to use all building/pushing image targets
 IMG ?= docker.io/$(DOCKER_USER)/sops-converter:v0.2.2
