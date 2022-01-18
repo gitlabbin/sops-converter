@@ -27,6 +27,8 @@ import (
 	"os"
 	"os/exec"
 	"reflect"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"strconv"
 	"strings"
 	"sync"
@@ -220,11 +222,7 @@ func (r *SopsSecretReconciler) ReconcileNamespace(ctx context.Context, log logr.
 			// Remove the finalizer and exit
 			controllerutil.RemoveFinalizer(obj, DeletionFinalizer)
 			if err = r.Update(ctx, obj); err != nil {
-				if secretNotFound {
-					return ctrl.Result{}, nil
-				} else {
-					return ctrl.Result{}, fmt.Errorf("unable to remove finalizer, error: %v, while secretNotFound =  %t", err, secretNotFound)
-				}
+				return ctrl.Result{}, fmt.Errorf("unable to remove finalizer, error: %v, while secretNotFound =  %t", err, secretNotFound)
 			}
 			log.Info("finalizer was removed...")
 		}
@@ -338,6 +336,23 @@ func (r *SopsSecretReconciler) ReconcileNamespace(ctx context.Context, log logr.
 func (r *SopsSecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&secretsv1beta1.SopsSecret{}).
+		WithEventFilter(predicate.Funcs{
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				oldGeneration := e.ObjectOld.GetGeneration()
+				newGeneration := e.ObjectNew.GetGeneration()
+				// Generation is only updated on spec changes (also on deletion),
+				// not metadata or status
+				// Filter out events where the generation hasn't changed to
+				// avoid being triggered by status updates
+				return oldGeneration != newGeneration
+			},
+			DeleteFunc: func(e event.DeleteEvent) bool {
+				// The reconciler adds a finalizer so we perform clean-up
+				// when the delete timestamp is added
+				// Suppress Delete events to avoid filtering them out in the Reconcile function
+				return false
+			},
+		}).
 		// Use a WatchMap over an Ownerref, this should allow for safe deletion of the CRD and all objects without garbage collecting all of the secrets.
 		// Would require scaling down the controller first.
 		Watches(&source.Kind{Type: &corev1.Secret{}}, handler.EnqueueRequestsFromMapFunc(
