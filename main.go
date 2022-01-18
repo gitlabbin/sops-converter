@@ -50,6 +50,10 @@ var (
 	done        = make(chan bool)
 )
 
+var (
+	AppVersion, BuildDate, GitCommit string
+)
+
 func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
 	_ = secretsv1beta1.AddToScheme(scheme)

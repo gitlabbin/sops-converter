@@ -21,6 +21,10 @@ import (
 	"github.com/dhouti/sops-converter/cli/logger"
 )
 
+var (
+	AppVersion, BuildDate, GitCommit string
+)
+
 func init() {
 	logger.ConfigureLogging(nil)
 }
