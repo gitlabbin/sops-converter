@@ -18,7 +18,7 @@ func init() {
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print version",
-	Long:  `Display version and build information about rapidkube.`,
+	Long:  `Display version and build information about cli.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		printVersion()
 	},
