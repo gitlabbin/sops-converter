@@ -19,7 +19,7 @@ package main
 import (
 	"github.com/dhouti/sops-converter/cli/cmd"
 	"github.com/dhouti/sops-converter/cli/logger"
-	"github.com/dhouti/sops-converter/controllers"
+	"github.com/dhouti/sops-converter/pkg/util"
 )
 
 var (
@@ -28,7 +28,7 @@ var (
 
 func init() {
 	logger.ConfigureLogging(nil)
-	controllers.PrintAppVersion(AppVersion, GitCommit, BuildDate)
+	util.PrintAppVersion(AppVersion, GitCommit, BuildDate)
 }
 
 func main() {

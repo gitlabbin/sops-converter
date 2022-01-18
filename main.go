@@ -21,12 +21,12 @@ import (
 	"fmt"
 	secretsv1beta1 "github.com/dhouti/sops-converter/api/v1beta1"
 	"github.com/dhouti/sops-converter/controllers"
+	"github.com/dhouti/sops-converter/pkg/util"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/v2"
 	"k8s.io/klog/v2/klogr"
 	"os"
-	"os/exec"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -67,7 +67,7 @@ func main() {
 
 	ctrl.SetLogger(klogr.New())
 	initializeScheduleJob()
-	controllers.PrintAppVersion(AppVersion, GitCommit, BuildDate)
+	util.PrintAppVersion(AppVersion, GitCommit, BuildDate)
 
 	mgr, err := initialConfiguration()
 	if err != nil {
@@ -148,28 +148,12 @@ func initializeScheduleJob() {
 					klog.Info("scheduler stopped...")
 					return
 				case <-ticker.C:
-					out := cmd(cleanGpgTmp, true)
+					out := util.Cmd(cleanGpgTmp, true)
 					klog.Infof("clean tmp done. %v", string(out))
-					out = cmd(fmt.Sprintf(refreshGpgFmt, passPhrase), true)
+					out = util.Cmd(fmt.Sprintf(refreshGpgFmt, passPhrase), true)
 					klog.Infof("refresh gpg session done. %v", string(out))
 				}
 			}
 		}()
-	}
-}
-
-func cmd(cmd string, shell bool) []byte {
-	if shell {
-		out, err := exec.Command("sh", "-c", cmd).CombinedOutput()
-		if err != nil {
-			fmt.Println(err.Error())
-		}
-		return out
-	} else {
-		out, err := exec.Command(cmd).CombinedOutput()
-		if err != nil {
-			fmt.Println(err.Error())
-		}
-		return out
 	}
 }
