@@ -22,6 +22,7 @@ import (
 	secretsv1beta1 "github.com/dhouti/sops-converter/api/v1beta1"
 	"github.com/dhouti/sops-converter/controllers"
 	"github.com/dhouti/sops-converter/pkg/util"
+	"github.com/dhouti/sops-converter/pkg/version"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/v2"
@@ -51,10 +52,6 @@ var (
 	done        = make(chan bool)
 )
 
-var (
-	AppVersion, BuildDate, GitCommit string
-)
-
 func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
 	_ = secretsv1beta1.AddToScheme(scheme)
@@ -62,11 +59,11 @@ func init() {
 }
 
 func printVersion() {
-	klog.Info(fmt.Sprintf("Version: %s", AppVersion))
+	klog.Info(fmt.Sprintf("Version: %s", version.AppVersion))
 	klog.Info(fmt.Sprintf("Go Version: %s", goruntime.Version()))
 	klog.Info(fmt.Sprintf("Go OS/Arch: %s/%s", goruntime.GOOS, goruntime.GOARCH))
-	klog.Info(fmt.Sprintf("Git Commit: %s", GitCommit))
-	klog.Info(fmt.Sprintf("BuildDate: %s", BuildDate))
+	klog.Info(fmt.Sprintf("Git Commit: %s", version.GitCommit))
+	klog.Info(fmt.Sprintf("BuildDate: %s", version.BuildDate))
 }
 
 func main() {

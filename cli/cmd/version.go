@@ -2,13 +2,9 @@ package cmd
 
 import (
 	"fmt"
-	log "github.com/sirupsen/logrus"
+	"github.com/dhouti/sops-converter/pkg/version"
 	"github.com/spf13/cobra"
 	goruntime "runtime"
-)
-
-var (
-	AppVersion, BuildDate, GitCommit string
 )
 
 func init() {
@@ -25,9 +21,9 @@ var versionCmd = &cobra.Command{
 }
 
 func printVersion() {
-	log.Info(fmt.Sprintf("Version: %s", AppVersion))
-	log.Info(fmt.Sprintf("Go Version: %s", goruntime.Version()))
-	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", goruntime.GOOS, goruntime.GOARCH))
-	log.Info(fmt.Sprintf("Git Commit: %s", GitCommit))
-	log.Info(fmt.Sprintf("BuildDate: %s", BuildDate))
+	fmt.Printf("Version: %s\n", version.AppVersion)
+	fmt.Printf("Go Version: %s\n", goruntime.Version())
+	fmt.Printf("Go OS/Arch: %s/%s\n", goruntime.GOOS, goruntime.GOARCH)
+	fmt.Printf("Git Commit: %s\n", version.GitCommit)
+	fmt.Printf("BuildDate: %s\n", version.BuildDate)
 }
