@@ -66,7 +66,7 @@ mocks:
 docker: docker-build docker-push
 
 docker-build:
-	docker build . -t ${IMG}
+	docker build --build-arg LDFLAGS=$(LDFLAGS) . -t ${IMG}
 
 # Push the docker image
 docker-push:

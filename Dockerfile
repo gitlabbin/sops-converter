@@ -1,6 +1,7 @@
 # Build the manager binary
 FROM golang:1.17 as builder
 
+ARG LDFLAGS
 WORKDIR /workspace
 # Copy the Go Modules manifests
 COPY go.mod go.mod
@@ -14,11 +15,12 @@ COPY main.go main.go
 COPY api/ api/
 COPY controllers/ controllers/
 COPY hack/ hack/
+COPY pkg/ pkg/
 
 # Build
 COPY Makefile Makefile
 RUN make generate
-RUN CGO_ENABLED=0 GOOS=linux GO111MODULE=on go build -a -o sops-operator main.go
+RUN CGO_ENABLED=0 GOOS=linux GO111MODULE=on go build -ldflags "$LDFLAGS" -a -o sops-operator main.go
 
 FROM alpine:3.15
 
