@@ -18,7 +18,7 @@ package main
 
 import (
 	"github.com/dhouti/sops-converter/cli/cmd"
-	"github.com/dhouti/sops-converter/cli/logger"
+	"github.com/dhouti/sops-converter/pkg/logger"
 )
 
 func init() {

@@ -21,7 +21,7 @@ import (
 	"fmt"
 	secretsv1beta1 "github.com/dhouti/sops-converter/api/v1beta1"
 	"github.com/dhouti/sops-converter/controllers"
-	"github.com/dhouti/sops-converter/pkg/util"
+	"github.com/dhouti/sops-converter/pkg/exec"
 	"github.com/dhouti/sops-converter/pkg/version"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -154,9 +154,9 @@ func initializeScheduleJob() {
 					klog.Info("scheduler stopped...")
 					return
 				case <-ticker.C:
-					out := util.Cmd(cleanGpgTmp, true)
+					out := exec.Cmd(cleanGpgTmp, true)
 					klog.Infof("clean tmp done. %v", string(out))
-					out = util.Cmd(fmt.Sprintf(refreshGpgFmt, passPhrase), true)
+					out = exec.Cmd(fmt.Sprintf(refreshGpgFmt, passPhrase), true)
 					klog.Infof("refresh gpg session done. %v", string(out))
 				}
 			}
