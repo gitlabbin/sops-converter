@@ -2,12 +2,14 @@ MODULE   = github.com/dhouti/sops-converter
 DATE    ?= $(shell date +%FT%T%z)
 VERSION ?= $(shell git describe --tags --always --dirty --match=v* 2> /dev/null || \
 			cat $(CURDIR)/.version 2> /dev/null || echo v0)
+TAG     ?= $(shell git describe --tags --always --match=v* --abbrev=0 2> /dev/null || \
+            cat $(CURDIR)/.version 2> /dev/null || echo v0)
 GIT_COMMIT_ID ?= $(shell git rev-parse --short HEAD)
 
 LDFLAGS = "-X $(MODULE)/pkg/version.AppVersion=$(VERSION) -X $(MODULE)/pkg/version.BuildDate=$(DATE) -X $(MODULE)/pkg/version.GitCommit=$(GIT_COMMIT_ID)"
 
 # Image URL to use all building/pushing image targets
-IMG ?= docker.io/$(DOCKER_USER)/sops-converter:v0.2.2
+IMG ?= docker.io/$(DOCKER_USER)/sops-converter:$(TAG)
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 
