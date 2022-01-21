@@ -19,14 +19,13 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/bombsimon/logrusr/v2"
 	secretsv1beta1 "github.com/dhouti/sops-converter/api/v1beta1"
 	"github.com/dhouti/sops-converter/controllers"
 	"github.com/dhouti/sops-converter/pkg/exec"
 	"github.com/dhouti/sops-converter/pkg/k8s"
 	"github.com/dhouti/sops-converter/pkg/logger"
 	"github.com/dhouti/sops-converter/pkg/version"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"os"
@@ -50,7 +49,10 @@ var (
 	scheme      = runtime.NewScheme()
 	metricsAddr = ":8080"
 	done        = make(chan bool)
-	log         = logf.Log.WithName("main.cmd")
+	log         = logrusr.New(
+		logger.GenerateLogger(),
+		logrusr.WithReportCaller(),
+	).WithCallDepth(0)
 )
 
 func init() {

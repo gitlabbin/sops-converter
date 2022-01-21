@@ -8,7 +8,6 @@ import (
 	"path"
 	"runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type LoggingConfig struct {
@@ -48,15 +47,14 @@ func ConfigureLogging(config *LoggingConfig) {
 
 func ConfigControllerLog() {
 	log := logrusr.New(
-		generateLogger(),
+		GenerateLogger(),
 		logrusr.WithReportCaller(),
 	).WithCallDepth(0)
 
-	logf.SetLogger(log)
 	ctrl.SetLogger(log)
 }
 
-func generateLogger() *log.Logger {
+func GenerateLogger() *log.Logger {
 	var logrusLog = log.New()
 	logrusLog.SetLevel(log.TraceLevel)
 	logrusLog.SetFormatter(&log.TextFormatter{
