@@ -47,6 +47,16 @@ func ConfigureLogging(config *LoggingConfig) {
 }
 
 func ConfigControllerLog() {
+	log := logrusr.New(
+		generateLogger(),
+		logrusr.WithReportCaller(),
+	).WithCallDepth(0)
+
+	logf.SetLogger(log)
+	ctrl.SetLogger(log)
+}
+
+func generateLogger() *log.Logger {
 	var logrusLog = log.New()
 	logrusLog.SetLevel(log.TraceLevel)
 	logrusLog.SetFormatter(&log.TextFormatter{
@@ -57,10 +67,5 @@ func ConfigControllerLog() {
 			return fmt.Sprintf("%s()", f.Function), fmt.Sprintf("%s:%d", fileName, f.Line)
 		},
 	})
-	var log = logrusr.New(
-		logrusLog,
-		logrusr.WithReportCaller(),
-	)
-	logf.SetLogger(log)
-	ctrl.SetLogger(log)
+	return logrusLog
 }
