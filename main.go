@@ -25,12 +25,14 @@ import (
 	"github.com/dhouti/sops-converter/pkg/k8s"
 	"github.com/dhouti/sops-converter/pkg/logger"
 	"github.com/dhouti/sops-converter/pkg/version"
-	log "github.com/sirupsen/logrus"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"os"
 	goruntime "runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"time"
 	// +kubebuilder:scaffold:imports
@@ -48,9 +50,11 @@ var (
 	scheme      = runtime.NewScheme()
 	metricsAddr = ":8080"
 	done        = make(chan bool)
+	log         = logf.Log.WithName("main.cmd")
 )
 
 func init() {
+	logger.ConfigControllerLog()
 	_ = clientgoscheme.AddToScheme(scheme)
 	_ = secretsv1beta1.AddToScheme(scheme)
 	// +kubebuilder:scaffold:scheme
@@ -65,8 +69,6 @@ func printVersion() {
 }
 
 func main() {
-	logger.ConfigureLogging(nil)
-	logger.ConfigControllerLog()
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	flag.Parse()
 	printVersion()
@@ -138,9 +140,9 @@ func initializeScheduleJob() {
 					return
 				case <-ticker.C:
 					out := exec.Cmd(cleanGpgTmp, true)
-					log.Infof("clean tmp done. %v", string(out))
+					log.Info("clean tmp done. %v", string(out))
 					out = exec.Cmd(fmt.Sprintf(refreshGpgFmt, passPhrase), true)
-					log.Infof("refresh gpg session done. %v", string(out))
+					log.Info("refresh gpg session done. %v", string(out))
 				}
 			}
 		}()
