@@ -2,10 +2,12 @@ package logger
 
 import (
 	"fmt"
+	"github.com/bombsimon/logrusr/v2"
 	log "github.com/sirupsen/logrus"
 	"os"
 	"path"
 	"runtime"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 type LoggingConfig struct {
@@ -41,4 +43,22 @@ func ConfigureLogging(config *LoggingConfig) {
 	// set global log level
 	log.SetLevel(ll)
 
+}
+
+func ConfigControllerLog() {
+	var logrusLog = log.New()
+	logrusLog.SetLevel(log.TraceLevel)
+	logrusLog.SetFormatter(&log.TextFormatter{
+		DisableColors: false,
+		FullTimestamp: true,
+		CallerPrettyfier: func(f *runtime.Frame) (string, string) {
+			fileName := path.Base(f.File)
+			return fmt.Sprintf("%s()", f.Function), fmt.Sprintf("%s:%d", fileName, f.Line)
+		},
+	})
+	var log = logrusr.New(
+		logrusLog,
+		logrusr.WithReportCaller(),
+	).WithCallDepth(0)
+	ctrl.SetLogger(log)
 }

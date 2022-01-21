@@ -23,11 +23,11 @@ import (
 	"github.com/dhouti/sops-converter/controllers"
 	"github.com/dhouti/sops-converter/pkg/exec"
 	"github.com/dhouti/sops-converter/pkg/k8s"
+	"github.com/dhouti/sops-converter/pkg/logger"
 	"github.com/dhouti/sops-converter/pkg/version"
+	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	log "k8s.io/klog/v2"
-	"k8s.io/klog/v2/klogr"
 	"os"
 	goruntime "runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -65,11 +65,12 @@ func printVersion() {
 }
 
 func main() {
+	logger.ConfigureLogging(nil)
+	logger.ConfigControllerLog()
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	flag.Parse()
 	printVersion()
 
-	ctrl.SetLogger(klogr.New())
 	initializeScheduleJob()
 
 	mgr, err := initialConfiguration()
