@@ -1,6 +1,15 @@
+MODULE   = github.com/dhouti/sops-converter
+DATE    ?= $(shell date +%FT%T%z)
+VERSION ?= $(shell git describe --tags --always --dirty --match=v* 2> /dev/null || \
+			cat $(CURDIR)/.version 2> /dev/null || echo v0)
+TAG     ?= $(shell git describe --tags --always --match=v* --abbrev=0 2> /dev/null || \
+            cat $(CURDIR)/.version 2> /dev/null || echo v0)
+GIT_COMMIT_ID ?= $(shell git rev-parse --short HEAD)
+
+LDFLAGS = "-X $(MODULE)/pkg/version.AppVersion=$(VERSION) -X $(MODULE)/pkg/version.BuildDate=$(DATE) -X $(MODULE)/pkg/version.GitCommit=$(GIT_COMMIT_ID)"
 
 # Image URL to use all building/pushing image targets
-IMG ?= docker.io/$(DOCKER_USER)/sops-converter:v0.2.2
+IMG ?= docker.io/$(DOCKER_USER)/sops-converter:$(TAG)
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 
@@ -14,16 +23,16 @@ endif
 all: fmt vet generate manifests mocks
 
 build: generate manifests fmt vet
-	go build -o bin/sops-converter github.com/dhouti/sops-converter/cli
-	go build -o bin/controller github.com/dhouti/sops-converter
+	go build -ldflags $(LDFLAGS) -o bin/sops-converter github.com/dhouti/sops-converter/cli
+	go build -ldflags $(LDFLAGS) -o bin/controller github.com/dhouti/sops-converter
 
 release-cli: build-cli zip-cli
 
 build-cli: generate manifests fmt vet
-	GOOS=darwin GOARCH=amd64 go build -o bin/sops-converter-cli-darwin-amd64 github.com/dhouti/sops-converter/cli
-	GOOS=linux GOARCH=amd64 go build -o bin/sops-converter-cli-linux-amd64 github.com/dhouti/sops-converter/cli
-	GOOS=linux GOARCH=arm64 go build -o bin/sops-converter-cli-linux-arm64 github.com/dhouti/sops-converter/cli
-	GOOS=windows GOARCH=amd64 go build -o bin/sops-converter-cli-windows-amd64 github.com/dhouti/sops-converter/cli
+	GOOS=darwin GOARCH=amd64 go build -ldflags $(LDFLAGS) -o bin/sops-converter-cli-darwin-amd64 github.com/dhouti/sops-converter/cli
+	GOOS=linux GOARCH=amd64 go build -ldflags $(LDFLAGS) -o bin/sops-converter-cli-linux-amd64 github.com/dhouti/sops-converter/cli
+	GOOS=linux GOARCH=arm64 go build -ldflags $(LDFLAGS) -o bin/sops-converter-cli-linux-arm64 github.com/dhouti/sops-converter/cli
+	GOOS=windows GOARCH=amd64 go build -ldflags $(LDFLAGS) -o bin/sops-converter-cli-windows-amd64 github.com/dhouti/sops-converter/cli
 
 zip-cli:
 	zip -rq bin/sops-converter-cli-windows-amd64.zip bin/sops-converter-cli-windows-amd64
@@ -59,7 +68,7 @@ mocks:
 docker: docker-build docker-push
 
 docker-build:
-	docker build . -t ${IMG}
+	docker build --build-arg LDFLAGS=$(LDFLAGS) . -t ${IMG}
 
 # Push the docker image
 docker-push:
