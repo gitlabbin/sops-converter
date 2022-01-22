@@ -62,7 +62,7 @@ generate: controller-gen
 
 mocks:
 	go install github.com/matryer/moq@latest
-	go generate controllers/sopssecret_controller.go
+	go generate pkg/decrypt/sops.go
 
 # Build the docker image
 docker: docker-build docker-push
