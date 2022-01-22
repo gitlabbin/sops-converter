@@ -1,3 +1,5 @@
+SHELL = /bin/bash
+
 MODULE   = github.com/dhouti/sops-converter
 DATE    ?= $(shell date +%FT%T%z)
 VERSION ?= $(shell git describe --tags --always --dirty --match=v* 2> /dev/null || \
@@ -42,7 +44,7 @@ zip-cli:
 
 # Run tests
 test: generate mocks manifests fmt vet
-	go test ./... -coverprofile cover.out
+	source setup_envtest.sh; fetch_envtest_assets; setup_envtest_env; go test ./... -coverprofile cover.out
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen

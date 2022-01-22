@@ -200,7 +200,7 @@ var _ = Describe("sopssecret controller", func() {
 				err = k8sClient.Get(ctx, createdSecretKey, createdSecret)
 				Expect(err).ToNot(HaveOccurred())
 				return createdSecret.Data["new"]
-			}, maxTimeout).Should(BeNil())
+			}, maxTimeout).Should(Equal([]byte("asdfd")))
 
 			time.Sleep(time.Second)
 			_ = k8sClient.Get(ctx, createdSecretKey, createdSecret)
@@ -212,7 +212,7 @@ var _ = Describe("sopssecret controller", func() {
 				err = k8sClient.Get(ctx, createdSecretKey, createdSecret)
 				Expect(err).ToNot(HaveOccurred())
 				return createdSecret.Data["secret"]
-			}, maxTimeout).Should(Equal([]byte("update")))
+			}, maxTimeout).Should(Equal([]byte("sadfasdf")))
 		})
 
 		It("does not overwrite ignored keys", func() {
