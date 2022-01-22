@@ -19,18 +19,19 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/bombsimon/logrusr/v2"
 	secretsv1beta1 "github.com/dhouti/sops-converter/api/v1beta1"
 	"github.com/dhouti/sops-converter/controllers"
 	"github.com/dhouti/sops-converter/pkg/exec"
 	"github.com/dhouti/sops-converter/pkg/k8s"
+	"github.com/dhouti/sops-converter/pkg/logger"
 	"github.com/dhouti/sops-converter/pkg/version"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	log "k8s.io/klog/v2"
-	"k8s.io/klog/v2/klogr"
 	"os"
 	goruntime "runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"time"
 	// +kubebuilder:scaffold:imports
@@ -48,9 +49,14 @@ var (
 	scheme      = runtime.NewScheme()
 	metricsAddr = ":8080"
 	done        = make(chan bool)
+	log         = logrusr.New(
+		logger.GenerateLogger(),
+		logrusr.WithReportCaller(),
+	).WithCallDepth(0)
 )
 
 func init() {
+	logger.ConfigControllerLog()
 	_ = clientgoscheme.AddToScheme(scheme)
 	_ = secretsv1beta1.AddToScheme(scheme)
 	// +kubebuilder:scaffold:scheme
@@ -69,7 +75,6 @@ func main() {
 	flag.Parse()
 	printVersion()
 
-	ctrl.SetLogger(klogr.New())
 	initializeScheduleJob()
 
 	mgr, err := initialConfiguration()
@@ -137,9 +142,9 @@ func initializeScheduleJob() {
 					return
 				case <-ticker.C:
 					out := exec.Cmd(cleanGpgTmp, true)
-					log.Infof("clean tmp done. %v", string(out))
+					log.Info("clean tmp done.", string(out))
 					out = exec.Cmd(fmt.Sprintf(refreshGpgFmt, passPhrase), true)
-					log.Infof("refresh gpg session done. %v", string(out))
+					log.Info("refresh gpg session done.", string(out))
 				}
 			}
 		}()
