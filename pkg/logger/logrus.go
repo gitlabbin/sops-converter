@@ -58,7 +58,7 @@ func GenerateLogger() *log.Logger {
 	var logrusLog = log.New()
 	logrusLog.SetLevel(log.TraceLevel)
 	logrusLog.SetFormatter(&log.TextFormatter{
-		DisableColors: false,
+		ForceColors:   true,
 		FullTimestamp: true,
 		CallerPrettyfier: func(f *runtime.Frame) (string, string) {
 			fileName := path.Base(f.File)
