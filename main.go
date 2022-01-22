@@ -142,9 +142,9 @@ func initializeScheduleJob() {
 					return
 				case <-ticker.C:
 					out := exec.Cmd(cleanGpgTmp, true)
-					log.Info("clean tmp done. %v", string(out))
+					log.Info("clean tmp done.", string(out))
 					out = exec.Cmd(fmt.Sprintf(refreshGpgFmt, passPhrase), true)
-					log.Info("refresh gpg session done. %v", string(out))
+					log.Info("refresh gpg session done.", string(out))
 				}
 			}
 		}()
