@@ -27,7 +27,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	sopssecretsv1beta1 "github.com/dhouti/sops-converter/api/v1beta1"
-	controllersmocks "github.com/dhouti/sops-converter/controllers/mocks"
+	decryptmocks "github.com/dhouti/sops-converter/pkg/decrypt/mocks"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,7 +40,7 @@ var currentObjectName string
 var _ = Describe("sopssecret controller", func() {
 	ctx := context.Background()
 	maxTimeout := 5
-	var mockedDecrytor *controllersmocks.DecryptorMock
+	var mockedDecrytor *decryptmocks.DecryptorMock
 
 	BeforeEach(func() {
 		currentNamespace = getRandomString()
@@ -49,7 +49,7 @@ var _ = Describe("sopssecret controller", func() {
 
 		// Simple mock, just make it return the input.
 		// We can validate all other behaviors this way.
-		mockedDecrytor = &controllersmocks.DecryptorMock{
+		mockedDecrytor = &decryptmocks.DecryptorMock{
 			DecryptFunc: func(input []byte, format string) ([]byte, error) {
 				return input, nil
 			},
@@ -200,7 +200,7 @@ var _ = Describe("sopssecret controller", func() {
 				err = k8sClient.Get(ctx, createdSecretKey, createdSecret)
 				Expect(err).ToNot(HaveOccurred())
 				return createdSecret.Data["new"]
-			}, maxTimeout).Should(BeNil())
+			}, maxTimeout).Should(Equal([]byte("asdfd")))
 
 			time.Sleep(time.Second)
 			_ = k8sClient.Get(ctx, createdSecretKey, createdSecret)
@@ -212,7 +212,7 @@ var _ = Describe("sopssecret controller", func() {
 				err = k8sClient.Get(ctx, createdSecretKey, createdSecret)
 				Expect(err).ToNot(HaveOccurred())
 				return createdSecret.Data["secret"]
-			}, maxTimeout).Should(Equal([]byte("update")))
+			}, maxTimeout).Should(Equal([]byte("sadfasdf")))
 		})
 
 		It("does not overwrite ignored keys", func() {

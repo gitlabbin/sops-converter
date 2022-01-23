@@ -17,15 +17,15 @@ limitations under the License.
 package controllers
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha1"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/dhouti/sops-converter/pkg/decrypt"
 	"go.uber.org/atomic"
 	"os"
-	"os/exec"
+
 	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -57,44 +57,19 @@ const (
 	DeletionFinalizer        = "secrets.dhouti.dev/garbageCollection"
 )
 
-var _ Decryptor = &SopsDecrytor{}
 var lock sync.Mutex
-
-//go:generate moq -out mocks/decryptor_mock.go -pkg controllers_mocks . Decryptor
-type Decryptor interface {
-	Decrypt([]byte, string) ([]byte, error)
-}
 
 // SopsSecretReconciler reconciles a SopsSecret object
 type SopsSecretReconciler struct {
 	client.Client
 	Log    logr.Logger
 	Scheme *runtime.Scheme
-	Decryptor
 
+	decrypt.Decryptor
 	finalizersDisabled *atomic.Bool
 }
 
-type SopsDecrytor struct {
-}
-
-func (d *SopsDecrytor) Decrypt(input []byte, outFormat string) ([]byte, error) {
-	args := []string{"--decrypt", "--input-type", outFormat, "--output-type", outFormat, "/dev/stdin"}
-
-	command := exec.Command("sops", args...)
-	command.Stdin = bytes.NewBuffer(input)
-
-	output, err := command.Output()
-	if err != nil {
-		if e, ok := err.(*exec.ExitError); ok {
-			return nil, fmt.Errorf("failed to decrypt file: %s", string(e.Stderr))
-		}
-		return nil, err
-	}
-	return output, err
-}
-
-func (r *SopsSecretReconciler) InjectDecryptor(d Decryptor) {
+func (r *SopsSecretReconciler) InjectDecryptor(d decrypt.Decryptor) {
 	r.Decryptor = d
 }
 
@@ -400,7 +375,7 @@ func (r *SopsSecretReconciler) initReconciler() {
 	defer lock.Unlock()
 	// If not otherwise defined, default to the real decrypt func.
 	if r.Decryptor == nil {
-		r.Decryptor = &SopsDecrytor{}
+		r.Decryptor = &decrypt.SopsDecrytor{}
 	}
 	if r.finalizersDisabled == nil {
 		r.finalizersDisabled = atomic.NewBool(false)

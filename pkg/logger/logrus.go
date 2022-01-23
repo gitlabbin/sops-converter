@@ -46,12 +46,10 @@ func ConfigureLogging(config *LoggingConfig) {
 }
 
 func ConfigControllerLog() {
-	log := logrusr.New(
+	ctrl.SetLogger(logrusr.New(
 		GenerateLogger(),
 		logrusr.WithReportCaller(),
-	).WithCallDepth(0)
-
-	ctrl.SetLogger(log)
+	).WithCallDepth(0))
 }
 
 func GenerateLogger() *log.Logger {
