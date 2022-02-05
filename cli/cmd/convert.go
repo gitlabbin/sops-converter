@@ -121,17 +121,18 @@ func (o *convertOptions) process(args []string) error {
 	bytes.NewReader(secretData).WriteTo(tmpfile)
 	tmpfile.Sync()
 
-	// Catch stdout in buffer
-	sopsStdout := &bytes.Buffer{}
-
 	// run sops encrypt directly
 	sopsCommandArgs := append([]string{"--encrypt", "--output-type", "yaml"}, args[1:]...)
 	sopsCommandArgs = append(sopsCommandArgs, tmpfile.Name())
+
+	var sopsStdout bytes.Buffer
+	var stderr bytes.Buffer
 	sopsCommand := exec.Command("sops", sopsCommandArgs...)
-	sopsCommand.Stdout = sopsStdout
+	sopsCommand.Stdout = &sopsStdout
+	sopsCommand.Stderr = &stderr
 	err = sopsCommand.Run()
 	if err != nil {
-		log.Errorf("sops failed on: %v", err)
+		log.Errorf("sops failed on %v: %s", err, stderr.String())
 		return err
 	}
 
