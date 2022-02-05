@@ -71,6 +71,9 @@ docker: docker-build docker-push
 
 docker-build:
 	docker build --build-arg LDFLAGS=$(LDFLAGS) . -t ${IMG}
+	@docker build -t ${IMG} .
+	@docker tag ${IMG} ${LATEST}
+	@docker tag ${IMG} ${DOCKER_IO_IMG}
 
 # Push the docker image
 docker-push:
